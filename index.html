@@ -232,6 +232,7 @@
     background:rgba(255,255,255,.08);
     overflow:hidden;
     position:relative;
+    cursor:pointer;
   }
   .bar-fill{
     height:100%; width:0%;
@@ -421,7 +422,7 @@
 
   <div class="head">
     <div class="logo">Music<span>//</span>Tabib</div>
-    <div class="status"><span class="dot-live"></span> <span id="statusText">flutemusic</span></div>
+    <div class="status"><span class="dot-live"></span> <span id="statusText">READY</span></div>
   </div>
 
   <div class="main">
@@ -450,7 +451,7 @@
 
       <div class="track-meta">
         <div class="track-title" id="trackTitle">Tabib music</div>
-        <div class="track-artist" id="trackArtist">SYNTH // DRIVE UNIT</div>
+        <div class="track-artist" id="trackArtist">NEON // WAV</div>
       </div>
 
       <canvas id="viz"></canvas>
@@ -468,8 +469,8 @@
           </button>
           <div class="progress-wrap">
             <span id="tCur">00:00</span>
-            <div class="bar"><div class="bar-fill" id="barFill"></div></div>
-            <span id="tTotal">02:00</span>
+            <div class="bar" id="progressBar"><div class="bar-fill" id="barFill"></div></div>
+            <span id="tTotal">00:00</span>
           </div>
         </div>
       </div>
@@ -499,15 +500,18 @@
         </div>
         <div class="master-info">
           <div class="lbl">MASTER OUTPUT</div>
-          <div class="desc">Kendalikan volume utama. Putar knob EQ untuk membentuk karakter suara — drag naik/turun. Klik dua kali knob untuk reset ke 0dB.</div>
+          <div class="desc">Kontrol volume. Drag knob EQ untuk membentuk suara. Double-click untuk reset 0dB.</div>
         </div>
       </div>
 
-      <div class="hint">◈ AUDIO DIBANGKITKAN LANGSUNG DI JAVASCRIPT — SYNTH ENGINE PROSEDURAL ◈</div>
+      <div class="hint">◈ REAL AUDIO PLAYER — STREAM MUSIK MP3 DENGAN WEB AUDIO API ◈</div>
     </div>
 
   </div>
 </div>
+
+<!-- Hidden audio element untuk streaming MP3 -->
+<audio id="audioPlayer" crossorigin="anonymous"></audio>
 
 <script>
 (function(){
@@ -516,7 +520,7 @@
   /* ============ AUDIO ENGINE ============ */
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
   let actx = null;
-  let masterGain, analyser, bassF, lowMidF, midF, highMidF, trebleF, mixBus;
+  let masterGain, analyser, bassF, lowMidF, midF, highMidF, trebleF, audioSource;
   let audioReady = false;
 
   const bands = [
@@ -526,16 +530,15 @@
     { key:'highmid', label:'High Mid', freq:2500, type:'peaking',  color:'--band-highmid',Q:1 },
     { key:'treble',  label:'Treble',   freq:6500, type:'highshelf',color:'--band-treble'  },
   ];
-  const bandValues = { bass:0, lowmid:0, mid:0, highmid:0, treble:0 }; // stored dB, -15..15
+  const bandValues = { bass:0, lowmid:0, mid:0, highmid:0, treble:0 };
   let eqEnabled = false;
   let volume = 0.75;
+
+  const audioPlayer = document.getElementById('audioPlayer');
 
   function initAudio(){
     if(audioReady) return;
     actx = new AudioCtx();
-
-    mixBus = actx.createGain();
-    mixBus.gain.value = 1;
 
     bassF = actx.createBiquadFilter();
     bassF.type = 'lowshelf'; bassF.frequency.value = 100; bassF.gain.value = 0;
@@ -556,9 +559,10 @@
     masterGain.gain.value = volume;
 
     analyser = actx.createAnalyser();
-    analyser.fftSize = 128;
+    analyser.fftSize = 256;
 
-    mixBus.connect(bassF).connect(lowMidF).connect(midF).connect(highMidF).connect(trebleF)
+    audioSource = actx.createMediaElementAudioSource(audioPlayer);
+    audioSource.connect(bassF).connect(lowMidF).connect(midF).connect(highMidF).connect(trebleF)
       .connect(masterGain).connect(analyser).connect(actx.destination);
 
     audioReady = true;
@@ -578,240 +582,74 @@
   function applyAllBands(){
     Object.keys(bandValues).forEach(k => applyBandGain(k, bandValues[k]));
   }
-  /* ============ TRACK /  DATA ============ */
-/* =========================================================
-   FLUTEMUSIC — data file
-    konten musik sendiri:
-   - MUSICIANS  -> slide untuk hero slideshow
-   - TRACKS     -> daftar lagu di tracklist & pemutar
 
-   Catatan:
-   gabut seumur hidup 
-   by zipmsi
-   ========================================================= */
-
-
-
-const tracks = [
-  {
-    title: "gemagus",
-    artist: "FLUTEMUSIC",
-    genre: "gemagus",
-    src: "https://archive.org/download/a-1gemagus-x-adtuying-imam/A1gemagus%20x%20ad%2Ctuying%20%28imam%29.mp3",
-    bpm: 120,
-    bassPattern: [55, 0, 55, 0, 55, 0, 55, 0, 44, 0, 44, 0, 44, 0, 44, 0],
-    arpPattern: [220, 264, 330, 264, 220, 264, 330, 264, 220, 264, 330, 264, 220, 264, 330, 264],
-    hatEvery: 2,
-    padChord: [110, 165, 220]
-  },
-  {
-    title: " gemagas",
-    artist: "FLUTEMUSIC",
-    genre: "meneng",
-    cover: "https://picsum.photos/id/1074/300/300",
-    src: "https://archive.org/download/a-1gemagus-x-adtuying-imam/Gemagus%28imam%29.mp3",
-    bpm: 110,
-    bassPattern: [66, 0, 66, 0, 55, 0, 55, 0, 49, 0, 49, 0, 44, 0, 44, 0],
-    arpPattern: [264, 330, 396, 330, 264, 330, 396, 330, 264, 330, 396, 330, 264, 330, 396, 330],
-    hatEvery: 3,
-    padChord: [132, 198, 264]
-  },
-  {
-    title: "gemagas Heart",
-    artist: "FLUTEMUSIC",
-    genre: "maen",
-    cover: "https://picsum.photos/id/110/300/300",
-    src: "https://archive.org/download/a-1gemagus-x-adtuying-imam/a%2C%28imam%29sergmen.mp3",
-    bpm: 128,
-    bassPattern: [49, 0, 49, 0, 55, 0, 55, 0, 61, 0, 61, 0, 66, 0, 66, 0],
-    arpPattern: [196, 247, 294, 247, 196, 247, 294, 247, 196, 247, 294, 247, 196, 247, 294, 247],
-    hatEvery: 2,
-    padChord: [98, 147, 196]
-  },
-  {
-    title: "gemagus",
-    artist: "udan",
-    genre: "Ambient",
-    cover: "https://picsum.photos/id/145/300/300",
-    src: "https://archive.org/download/udan-di-desa/hujan%20gerimis%20suara%20katak%20dan%20jangkrik%20suasana%20desa%20dijamin%20langsung%20tidur%20-%20Dunia%20Relaksasi.mp3",
-    bpm: 90,
-    bassPattern: [41, 0, 41, 0, 49, 0, 49, 0, 55, 0, 55, 0, 61, 0, 61, 0],
-    arpPattern: [164, 196, 220, 196, 164, 196, 220, 196, 164, 196, 220, 196, 164, 196, 220, 196],
-    hatEvery: 4,
-    padChord: [82, 123, 164]
-  },
-  {
-    title: "main lah",
-    artist: "udan rain",
-    genre: "hujan",
-    cover: "https://picsum.photos/id/160/300/300",
-    src: "https://archive.org/download/raingueudan/rain%28gueudan%29.mp3",
-    bpm: 100,
-    bassPattern: [55, 0, 55, 0, 66, 0, 66, 0, 49, 0, 49, 0, 55, 0, 55, 0],
-    arpPattern: [220, 264, 330, 264, 220, 264, 330, 264, 220, 264, 330, 264, 220, 264, 330, 264],
-    hatEvery: 2,
-    padChord: [110, 165, 220]
-  },
-  {
-    title: "music5",
-    artist: "FLUTEMUSIC",
-    genre: "Instrumental",
-    cover: "https://picsum.photos/id/177/300/300",
-    src: "https://archive.org/download/a-2-pendekar-3-x-adtuying-mashup/A2%20-%20pendekar3%20x%20ad%2Ctuying%20%28Mashup%29.mp3",
-    bpm: 115,
-    bassPattern: [73, 0, 73, 0, 82, 0, 82, 0, 92, 0, 92, 0, 0, 0, 0, 0],
-    arpPattern: [292, 349, 392, 349, 292, 349, 392, 349, 292, 349, 392, 349, 292, 349, 392, 349],
-    hatEvery: 2,
-    padChord: [146, 219, 292]
-  },
-  {
-    title: "main lah",
-    artist: "udan rain",
-    genre: "huja",
-    cover: "https://picsum.photos/id/160/300/300",
-    src: "https://archive.org/download/a-1gemagus-x-adtuying-imam/A1gemagus%20x%20ad%2Ctuying%20%28imam%29.mp3",
-    bpm: 105,
-    bassPattern: [55, 0, 55, 0, 66, 0, 66, 0, 49, 0, 49, 0, 55, 0, 55, 0],
-    arpPattern: [220, 264, 330, 264, 220, 264, 330, 264, 220, 264, 330, 264, 220, 264, 330, 264],
-    hatEvery: 2,
-    padChord: [110, 165, 220]
-  },
-  {
-    title: "music6",
-    artist: "FLUTEMUSIC",
-    genre: "Instrumental",
-    cover: "https://picsum.photos/id/177/300/300",
-    src: "https://archive.org/download/iringan-2/Iringan2.mp3",
-    bpm: 120,
-    bassPattern: [55, 0, 55, 0, 55, 0, 55, 0, 44, 0, 44, 0, 44, 0, 44, 0],
-    arpPattern: [220, 264, 330, 264, 220, 264, 330, 264, 220, 264, 330, 264, 220, 264, 330, 264],
-    hatEvery: 2,
-    padChord: [110, 165, 220]
-  },
-  {
-    title: "flute",
-    artist: "gemagus",
-    genre: "gabut",
-    cover: "https://picsum.photos/id/160/300/300",
-    src: "https://archive.org/download/a-1gemagus-x-adtuying-imam/Gemagus%28imam%29.mp3",
-    bpm: 112,
-    bassPattern: [61, 0, 61, 0, 55, 0, 55, 0, 49, 0, 49, 0, 44, 0, 44, 0],
-    arpPattern: [244, 293, 349, 293, 244, 293, 349, 293, 244, 293, 349, 293, 244, 293, 349, 293],
-    hatEvery: 3,
-    padChord: [122, 183, 244]
-  },
-];
+  /* ============ TRACK DATA ============ */
+  const tracks = [
+    {
+      title: "gemagus",
+      artist: "FLUTEMUSIC",
+      genre: "gemagus",
+      src: "https://archive.org/download/a-1gemagus-x-adtuying-imam/A1gemagus%20x%20ad%2Ctuying%20%28imam%29.mp3",
+    },
+    {
+      title: "gemagas",
+      artist: "FLUTEMUSIC",
+      genre: "meneng",
+      src: "https://archive.org/download/a-1gemagus-x-adtuying-imam/Gemagus%28imam%29.mp3"
+    },
+    {
+      title: "gemagas Heart",
+      artist: "FLUTEMUSIC",
+      genre: "maen",
+      src: "https://archive.org/download/a-1gemagus-x-adtuying-imam/a%2C%28imam%29sergmen.mp3"
+    },
+    {
+      title: "hujan gerimis",
+      artist: "udan",
+      genre: "Ambient",
+      src: "https://archive.org/download/udan-di-desa/hujan%20gerimis%20suara%20katak%20dan%20jangkrik%20suasana%20desa%20dijamin%20langsung%20tidur%20-%20Dunia%20Relaksasi.mp3"
+    },
+    {
+      title: "rain",
+      artist: "udan rain",
+      genre: "hujan",
+      src: "https://archive.org/download/raingueudan/rain%28gueudan%29.mp3"
+    },
+    {
+      title: "pendekar 3",
+      artist: "FLUTEMUSIC",
+      genre: "Instrumental",
+      src: "https://archive.org/download/a-2-pendekar-3-x-adtuying-mashup/A2%20-%20pendekar3%20x%20ad%2Ctuying%20%28Mashup%29.mp3"
+    },
+    {
+      title: "iringan 2",
+      artist: "FLUTEMUSIC",
+      genre: "Instrumental",
+      src: "https://archive.org/download/iringan-2/Iringan2.mp3"
+    },
+    {
+      title: "flute",
+      artist: "gemagus",
+      genre: "gabut",
+      src: "https://archive.org/download/a-1gemagus-x-adtuying-imam/Gemagus%28imam%29.mp3"
+    },
+  ];
 
   let currentTrack = 0;
   let isPlaying = false;
-  let noiseBuffer = null;
 
-  function getNoiseBuffer(){
-    if(noiseBuffer) return noiseBuffer;
-    const len = actx.sampleRate * 0.2;
-    const buf = actx.createBuffer(1, len, actx.sampleRate);
-    const data = buf.getChannelData(0);
-    for(let i=0;i<len;i++) data[i] = (Math.random()*2-1) * Math.pow(1 - i/len, 2);
-    noiseBuffer = buf;
-    return buf;
+  function formatTime(sec){
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
   }
 
-  function playHat(time, vol){
-    const src = actx.createBufferSource();
-    src.buffer = getNoiseBuffer();
-    const g = actx.createGain();
-    g.gain.setValueAtTime(vol, time);
-    g.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
-    const hp = actx.createBiquadFilter();
-    hp.type = 'highpass'; hp.frequency.value = 6000;
-    src.connect(hp).connect(g).connect(mixBus);
-    src.start(time); src.stop(time+0.06);
-  }
-
-  function playBassNote(freq, time, dur){
-    if(!freq) return;
-    const o = actx.createOscillator();
-    o.type = 'sawtooth';
-    o.frequency.setValueAtTime(freq, time);
-    const g = actx.createGain();
-    g.gain.setValueAtTime(0.0001, time);
-    g.gain.exponentialRampToValueAtTime(0.35, time + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.001, time + dur);
-    const lp = actx.createBiquadFilter();
-    lp.type='lowpass'; lp.frequency.value = 900;
-    o.connect(lp).connect(g).connect(mixBus);
-    o.start(time); o.stop(time+dur+0.02);
-  }
-
-  function playArpNote(freq, time, dur){
-    if(!freq) return;
-    const o = actx.createOscillator();
-    o.type = 'square';
-    o.frequency.setValueAtTime(freq, time);
-    const g = actx.createGain();
-    g.gain.setValueAtTime(0.0001, time);
-    g.gain.exponentialRampToValueAtTime(0.14, time + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.001, time + dur*0.9);
-    o.connect(g).connect(mixBus);
-    o.start(time); o.stop(time+dur);
-  }
-
-  function playPad(chord, time, dur){
-    chord.forEach((freq,i)=>{
-      const o = actx.createOscillator();
-      o.type = 'sine';
-      o.frequency.setValueAtTime(freq/2, time);
-      const g = actx.createGain();
-      g.gain.setValueAtTime(0.0001, time);
-      g.gain.linearRampToValueAtTime(0.08, time + dur*0.3);
-      g.gain.linearRampToValueAtTime(0.0001, time + dur);
-      o.connect(g).connect(mixBus);
-      o.start(time); o.stop(time+dur+0.05);
-    });
-  }
-
-  let schedulerTimer = null;
-  let step16 = 0;
-  let nextStepTime = 0;
-
-  function scheduler(){
-    const t = tracks[currentTrack];
-    const stepDur = 60 / t.bpm / 4; // 16th note
-    while(nextStepTime < actx.currentTime + 0.15){
-      const bassFreq = t.bassPattern[step16 % t.bassPattern.length];
-      const arpFreq = t.arpPattern[step16 % t.arpPattern.length];
-      playBassNote(bassFreq, nextStepTime, stepDur*1.8);
-      playArpNote(arpFreq, nextStepTime, stepDur*0.9);
-      if(step16 % t.hatEvery === 0) playHat(nextStepTime, 0.18);
-      if(step16 % 16 === 0) playPad(t.padChord, nextStepTime, stepDur*16);
-      step16++;
-      nextStepTime += stepDur;
-    }
-    schedulerTimer = setTimeout(scheduler, 40);
-  }
-
-  function startPlayback(){
-    initAudio();
-    if(actx.state === 'suspended') actx.resume();
-    applyAllBands();
-    if(!schedulerTimer){
-      step16 = 0;
-      nextStepTime = actx.currentTime + 0.05;
-      scheduler();
-    }
-    isPlaying = true;
-    updatePlayUI();
-    startProgress();
-  }
-
-  function stopPlayback(pauseOnly){
-    if(actx && pauseOnly){ actx.suspend(); }
-    isPlaying = false;
-    updatePlayUI();
-  }
-
-  function fullStopScheduler(){
-    if(schedulerTimer){ clearTimeout(schedulerTimer); schedulerTimer = null; }
+  function updateProgress(){
+    const cur = audioPlayer.currentTime || 0;
+    const dur = audioPlayer.duration || 0;
+    document.getElementById('tCur').textContent = formatTime(cur);
+    document.getElementById('tTotal').textContent = formatTime(dur);
+    if(dur > 0) document.getElementById('barFill').style.width = (cur/dur*100) + '%';
   }
 
   /* ============ UI: PLAYLIST ============ */
@@ -837,32 +675,31 @@ const tracks = [
 
   function selectTrack(i){
     currentTrack = i;
-    step16 = 0;
+    const t = tracks[i];
+    audioPlayer.src = t.src;
     document.querySelectorAll('.p-item').forEach((el,idx)=> el.classList.toggle('active', idx===i));
     document.querySelectorAll('.scene-dot').forEach((el,idx)=> el.classList.toggle('active', idx===i));
     document.querySelectorAll('.slide').forEach((el,idx)=> el.classList.toggle('active', idx===i));
     document.getElementById('sceneBadge').textContent = 'TRK.0'+(i+1);
-    document.getElementById('trackTitle').textContent = tracks[i].title;
-    document.getElementById('trackArtist').textContent = tracks[i].artist;
-    elapsed = 0;
-    if(isPlaying){
-      if(actx && actx.state==='suspended') actx.resume();
-    }
+    document.getElementById('trackTitle').textContent = t.title;
+    document.getElementById('trackArtist').textContent = t.artist;
   }
 
   document.getElementById('prevBtn').addEventListener('click', ()=>{
     selectTrack((currentTrack - 1 + tracks.length) % tracks.length);
-    if(!isPlaying) startPlayback(); else { actx.resume(); }
+    if(isPlaying) audioPlayer.play();
   });
+
   document.getElementById('nextBtn').addEventListener('click', ()=>{
     selectTrack((currentTrack + 1) % tracks.length);
-    if(!isPlaying) startPlayback(); else { actx.resume(); }
+    if(isPlaying) audioPlayer.play();
   });
 
   /* ============ UI: TRANSPORT ============ */
   const playBtn = document.getElementById('playBtn');
   const playIcon = document.getElementById('playIcon');
   const statusText = document.getElementById('statusText');
+  const progressBar = document.getElementById('progressBar');
 
   function updatePlayUI(){
     playIcon.innerHTML = isPlaying
@@ -872,26 +709,44 @@ const tracks = [
   }
 
   playBtn.addEventListener('click', ()=>{
-    if(!audioReady){ startPlayback(); return; }
-    if(isPlaying){ stopPlayback(true); }
-    else { startPlayback(); }
+    if(!audioReady) initAudio();
+    if(actx.state === 'suspended') actx.resume();
+    
+    if(isPlaying){
+      audioPlayer.pause();
+      isPlaying = false;
+    } else {
+      audioPlayer.play();
+      isPlaying = true;
+    }
+    updatePlayUI();
   });
 
-  /* progress (decorative, loops per 2 min "conceptual" duration) */
-  let elapsed = 0;
-  let progressTimer = null;
-  const DURATION = 120;
-  function fmt(s){ const m=Math.floor(s/60); const sec=Math.floor(s%60); return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0'); }
-  function startProgress(){
-    if(progressTimer) return;
-    progressTimer = setInterval(()=>{
-      if(!isPlaying) return;
-      elapsed = (elapsed + 1) % DURATION;
-      document.getElementById('tCur').textContent = fmt(elapsed);
-      document.getElementById('barFill').style.width = (elapsed/DURATION*100)+'%';
-    }, 1000);
-  }
-  document.getElementById('tTotal').textContent = fmt(DURATION);
+  audioPlayer.addEventListener('play', ()=> {
+    isPlaying = true;
+    statusText.textContent = 'PLAYING';
+    if(!audioReady) initAudio();
+  });
+  
+  audioPlayer.addEventListener('pause', ()=> {
+    isPlaying = false;
+    statusText.textContent = 'PAUSED';
+  });
+
+  audioPlayer.addEventListener('ended', ()=>{
+    selectTrack((currentTrack + 1) % tracks.length);
+    audioPlayer.play();
+  });
+
+  audioPlayer.addEventListener('timeupdate', updateProgress);
+  audioPlayer.addEventListener('loadedmetadata', updateProgress);
+
+  // Click pada progress bar untuk seek
+  progressBar.addEventListener('click', (e)=>{
+    const rect = progressBar.getBoundingClientRect();
+    const percent = (e.clientX - rect.left) / rect.width;
+    audioPlayer.currentTime = percent * audioPlayer.duration;
+  });
 
   /* ============ UI: VISUALIZER ============ */
   const canvas = document.getElementById('viz');
@@ -909,7 +764,7 @@ const tracks = [
       requestAnimationFrame(draw);
       analyser.getByteFrequencyData(data);
       ctx2d.clearRect(0,0,canvas.width,canvas.height);
-      const barCount = data.length;
+      const barCount = Math.min(data.length, 64);
       const barW = canvas.width / barCount;
       for(let i=0;i<barCount;i++){
         const v = data[i]/255;
@@ -924,7 +779,7 @@ const tracks = [
     draw();
   }
 
-  /* ============ ============ */
+  /* ============ EQUALIZER ============ */
   const MIN_DB = -15, MAX_DB = 15;
   const knobsGrid = document.getElementById('knobsGrid');
 
@@ -946,7 +801,7 @@ const tracks = [
       attachKnobDrag(document.getElementById('knob-'+b.key), (dB)=>{
         applyBandGain(b.key, dB);
         updateKnobVisual(b.key, dB);
-      }, MIN_DB, MAX_DB, 0, (val)=>val.toFixed(1)+' dB');
+      }, MIN_DB, MAX_DB, 0);
     });
   }
 
@@ -959,7 +814,7 @@ const tracks = [
     if(Math.abs(dB) > 0.5 && eqEnabled) knob.classList.add('glow'); else knob.classList.remove('glow');
   }
 
-  function attachKnobDrag(el, onChange, min, max, startVal, fmtFn){
+  function attachKnobDrag(el, onChange, min, max, startVal){
     let value = startVal;
     let dragging = false;
     let startY = 0;
@@ -1011,7 +866,6 @@ const tracks = [
       const angle = (volume) * 270 - 135;
       ind.style.transform = `translateX(-50%) rotate(${angle}deg)`;
     }, 0, 1, volume);
-    // init visual
     document.getElementById('volVal').textContent = Math.round(volume*100)+'%';
     document.getElementById('volIndicator').style.transform = `translateX(-50%) rotate(${volume*270-135}deg)`;
   }
@@ -1033,7 +887,7 @@ const tracks = [
   }
 
   eqToggleWrap.addEventListener('click', ()=>{
-    initAudio();
+    if(!audioReady) initAudio();
     setEqEnabled(!eqEnabled);
   });
 
@@ -1041,6 +895,7 @@ const tracks = [
   buildKnobs();
   buildVolumeKnob();
   buildPlaylist();
+  selectTrack(0);
   setEqEnabled(false);
 })();
 </script>
